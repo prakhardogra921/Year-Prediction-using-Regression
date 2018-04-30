@@ -1,0 +1,21 @@
+Linear Regression: Linear approach for modelling the relationship between a dependent variable, y and one or more independent variables, X. 
+Polynomial Regression: Relationship between X and y is modelled as an nth degree polynomial in X. 
+For example, each polynomial degree term is not simply x(i)2 where 2 is the polynomial degree and x(i) represents feature i. It can also be x(i)x(j) also be where i and j are features.
+
+
+Process of adding penalty to the cost function to prevent overfitting.
+Three types of regularization:
+Lasso Regression (L1 Norm)
+Ridge Regression (L2 Norm)
+Elastic Net Regression (Hybrid of L1 and L2 Norms)
+Lambda for each of the regularizer is a hyper parameter that has been tuned via cross validation
+
+
+Neural Networks are great function approximators and can be used for regression.
+For this project, I have used 1 hidden layer and the hidden layer (sigmoid activation) has 180 hidden nodes. (Hyper parameter tuned via Cross validation)
+Input layer has 90 nodes and output layer (no activation) has exactly one node that outputs the release year.
+
+
+Stepwise regression is a method of fitting regression models in which the choice of predictive variables is carried out by an iterative procedure.
+In each step, a feature is considered for addition to or subtraction from the set of features based on some prespecified criterion.
+For this project, step regression results in a subset of 26 features.
