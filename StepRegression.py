@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 from sklearn.metrics import explained_variance_score, mean_absolute_error, mean_squared_error, r2_score, mean_squared_log_error, average_precision_score
 
-class LinearRegression:
+class StepRegression:
     def __init__(self, filename):
         df = pd.read_csv(filename, header = None)
         #df = shuffle(df)
@@ -45,20 +45,69 @@ class LinearRegression:
         return b, W
 
 if __name__ == "__main__":
-    lr = LinearRegression("YearPredictionMSD/YearPredictionMSD.txt")
-    #X_train, X_test, y_train, y_test = train_test_split(lr.X, lr.y, test_size = 0.2, random_state = 1)
+    sr = StepRegression("YearPredictionMSD/YearPredictionMSD.txt")
+    #X_train, X_test, y_train, y_test = train_test_split(sr.X, sr.y, test_size = 0.2, random_state = 1)
+    X_train, y_train = sr.X[:sr.division], sr.y[:sr.division]
+    X_test, y_test = sr.X[sr.division:], sr.y[sr.division:]
+    split_size = X_train.shape[0]//sr.cv_splits
 
-    # This split is provided by the repository. It avoids the 'producer effect' by making sure no song from a given artist ends up in both the train and test set.
-    X_train, y_train = lr.X[:lr.division], lr.y[:lr.division]
-    X_test, y_test = lr.X[lr.division:], lr.y[lr.division:]
 
-    split_size = X_train.shape[0]//lr.cv_splits
+    # Hold out validation instead of Cross Validation because of large training time
+
+    X_t, X_val, y_t, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=1)
+
+    remaining = list(range(90))
+    steps = []
+    dft = pd.DataFrame(X_t, columns = remaining)
+    dfv = pd.DataFrame(X_val, columns = remaining)
+    best_mae = 100
+    all_mae = []
+    while remaining != []:
+        temp = list(steps)
+        mae = {}
+        for i in remaining:
+            temp.append(i)
+            b = np.random.normal()
+            X = np.array(dft[temp])
+            y = y_t
+            W = np.random.normal(size=X.shape[1])
+            b, W, cost_graph = sr.gradient_descent_runner(X, y, b, W)
+            X = dfv[temp]
+            y = y_val
+            h = sr.hypothesis(b, W, X)
+            mae[i] = mean_absolute_error(y, h)
+            temp = temp[:-1]
+        best_col = -1
+        for col in mae:
+            if mae[col] < best_mae:
+                best_col = col
+                best_mae = mae[col]
+        if best_col != -1:
+            steps.append(best_col)
+            remaining.remove(best_col)
+            print("Step", 90 - len(remaining))
+            print("Mean Absolute Error :", best_mae)
+            print("Columns", steps)
+            all_mae.append(best_mae)
+        else:
+            break
+    print("Selected Features using Step Regression.", steps)
+
+    plt.plot(range(len(all_mae)), all_mae)
+    plt.title("Step Regression")
+    plt.xlabel("Number of Selected Features")
+    plt.ylabel("Mean Absolute Error")
+    plt.show()
+
+    X_train = np.array(pd.DataFrame(X_train, columns = list(range(90)))[steps])
+    X_test = np.array(pd.DataFrame(X_test, columns=list(range(90)))[steps])
+    """
     ev = []
     mae = []
     rmse = []
     msle = []
     r2  =[]
-
+    #Commented block of code of Cross Validation. Used Hold out validation instead due to large training time.
     b, W = None, None
     for i in range(lr.cv_splits):
         print("Cross Validation for Split ", i+1)
@@ -89,33 +138,34 @@ if __name__ == "__main__":
         r2.append(r2_score(y, h))
         print("R2 Score : ", r2[-1])
 
+    plt.plot(range(lr.cv_splits), ev, "bo")
+    #plt.plot(range(lr.cv_splits), mae, "r+")
+    #plt.plot(range(lr.cv_splits), rmse, "g--")
+    #plt.plot(range(lr.cv_splits), msle, "b.")
+    plt.plot(range(lr.cv_splits), r2, "g^")
+    plt.title("Split vs Metrics")
+    plt.show()
+    """
+
     print("Test Data")
     b = np.random.normal(scale=1 / X_train.shape[1] ** .5)
     # can get the size by checking it in the gradient_descent_runner function
     W = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=X_train.shape[1])
 
-    b, W, cost_graph = lr.gradient_descent_runner(X_train, y_train, b, W)
+    b, W, cost_graph = sr.gradient_descent_runner(X_train, y_train, b, W)
 
-    plt.plot(range(lr.num_iterations), np.log(cost_graph))
-    plt.title("Linear Regression")
-    plt.xlabel("Iterations")
-    plt.ylabel("Log of Cost")
-    plt.show()
+    np.save("SRWeights.npy", np.append(W, b))
+    np.save("SRSteps.npy", np.array(steps))
 
-    np.save("LRWeights.npy", np.append(W, b))
+    h = sr.hypothesis(b, W, X_test)
 
-    h = lr.hypothesis(b, W, X_test)
+    print("Explained Variance : ", explained_variance_score(y_test, h))
+    print("Mean Absolute Error : ", mean_absolute_error(y_test, h))
+    print("Root Mean Squared Error : ", mean_squared_error(y_test, h) ** .5)
+    print("Mean Squared Log Error : ", mean_squared_log_error(y_test, h))
+    print("R2 Score : ", r2_score(y_test, h))
 
-    ev.append(explained_variance_score(y_test, h))
-    print("Explained Variance : ", ev[-1])
-    mae.append(mean_absolute_error(y_test, h))
-    print("Mean Absolute Error : ", mae[-1])
-    rmse.append(mean_squared_error(y_test, h) ** .5)
-    print("Root Mean Squared Error : ", rmse[-1])
-    msle.append(mean_squared_log_error(y_test, h))
-    print("Mean Squared Log Error : ", msle[-1])
-    r2.append(r2_score(y_test, h))
-    print("R2 Score : ", r2[-1])
+
 
 
 

@@ -9,7 +9,7 @@ from sklearn.metrics import explained_variance_score, mean_absolute_error, mean_
 class NeuralNetworkRegression:
     def __init__(self, filename):
         df = pd.read_csv(filename, header = None)
-        df = shuffle(df)
+        #df = shuffle(df)
         self.X = np.array(df.drop([0], axis=1))
         self.X = StandardScaler().fit_transform(self.X)
         self.y = np.array(df[0])
@@ -18,9 +18,9 @@ class NeuralNetworkRegression:
         self.num_iterations = 100
         self.batch_size = 512
         self.cv_splits = 5
-        self.n_hidden = 180
+        self.n_hidden = 30
         self.num_epochs = 300
-        #scale=1 / self.X.shape[1] ** .5
+        self.division = 463715
         self.weights_input_hidden = None#np.random.normal(scale=1 / self.X.shape[1] ** .5, size=(self.X.shape[1], self.n_hidden))
         self.weights_hidden_output = None#np.random.normal(scale=1 / self.X.shape[1] ** .5, size=self.n_hidden)
 
@@ -29,21 +29,16 @@ class NeuralNetworkRegression:
 
     def cal_grad(self, X, Y):
         hidden_input = np.dot(X, self.weights_input_hidden)
-        # print(hidden_input.shape)
         hidden_output = self.sigmoid(hidden_input)
-        #print(hidden_output.shape)
         output = np.dot(hidden_output, self.weights_hidden_output)
-        # print(output.shape)
+
         error = Y - output
-        # print(error.shape)
         output_error_term = error
-        # print(output_error_term.shape)
+
         hidden_error = np.outer(output_error_term, self.weights_hidden_output)
-        #print(hidden_error.shape)
         hidden_error_term = hidden_error * hidden_output * (1. - hidden_output)
-        # print(hidden_error_term.shape)
+
         del_w_hidden_output = np.dot(hidden_output.T, output_error_term)
-        #print(del_w_hidden_output.shape)
         del_w_input_hidden = np.matmul(X.T, hidden_error_term)
         return [del_w_input_hidden, del_w_hidden_output]
 
@@ -55,7 +50,6 @@ class NeuralNetworkRegression:
             while i < X.shape[0]//self.batch_size:
                 dwih, dwho = self.cal_grad(X[i*self.batch_size : (i+1)*self.batch_size], Y[i*self.batch_size : (i+1)*self.batch_size])
 
-                # TODO: Update weights
                 self.weights_input_hidden += self.learning_rate * dwih / self.batch_size
                 self.weights_hidden_output += self.learning_rate * dwho / self.batch_size
 
@@ -63,7 +57,7 @@ class NeuralNetworkRegression:
 
             dwih, dwho = self.cal_grad(X[i * self.batch_size:], Y[i * self.batch_size:])
             remaining_batch_size = X.shape[0] - i * self.batch_size
-            # TODO: Update weights
+
             self.weights_input_hidden += self.learning_rate * dwih / remaining_batch_size
             self.weights_hidden_output += self.learning_rate * dwho / remaining_batch_size
 
@@ -82,89 +76,85 @@ class NeuralNetworkRegression:
 
 if __name__ == "__main__":
     nnr = NeuralNetworkRegression("YearPredictionMSD/YearPredictionMSD.txt")
-    X_train, X_test, y_train, y_test = train_test_split(nnr.X, nnr.y, test_size = 0.2, random_state = 1)
+    #X_train, X_test, y_train, y_test = train_test_split(nnr.X, nnr.y, test_size = 0.2, random_state = 1)
+
+    #This split is provided by the repository. It avoids the 'producer effect' by making sure no song from a given artist ends up in both the train and test set.
+    X_train, y_train = nnr.X[:nnr.division], nnr.y[:nnr.division]
+    X_test, y_test = nnr.X[nnr.division:], nnr.y[nnr.division:]
+
     split_size = X_train.shape[0]//nnr.cv_splits
     ev = []
     mae = []
     rmse = []
     msle = []
     r2  =[]
+    hidden_nodes = []
+    global_mae = []
 
-    """
-    for i in range(nnr.cv_splits):
-        print("Cross Validation for Split ", i+1)
-        start = i * split_size
-        end = (i+1) * split_size
-        X = np.concatenate((X_train[:start], X_train[end:]), axis = 0)
-        y = np.concatenate((y_train[:start], y_train[end:]), axis = 0)
-        #b = np.random.normal()
-        #W = np.random.normal(size=nnr.X.shape[1])
-        nnr.weights_input_hidden = np.random.normal(scale=1 / X.shape[1] ** .5, size=(X.shape[1], nnr.n_hidden))
-        nnr.weights_hidden_output = np.random.normal(scale=1 / X.shape[1] ** .5, size=nnr.n_hidden)
+    for i in range(10):
+        nnr.n_hidden = (i + 1)*30
+        hidden_nodes.append(nnr.n_hidden)
 
-        cost_graph = nnr.train(X, y)
+        for i in range(nnr.cv_splits):
+            print("Cross Validation for Split ", i+1)
+            start = i * split_size
+            end = (i+1) * split_size
+            X = np.concatenate((X_train[:start], X_train[end:]), axis = 0)
+            y = np.concatenate((y_train[:start], y_train[end:]), axis = 0)
 
-        #plt.plot(range(len(cost_graph)), np.log(cost_graph))
-        #plt.title("Number of Iterations vs Cost")
-        #plt.show()
+            nnr.weights_input_hidden = np.random.normal(scale=1 / X.shape[1] ** .5, size=(X.shape[1], nnr.n_hidden))
+            nnr.weights_hidden_output = np.random.normal(scale=1 / X.shape[1] ** .5, size=nnr.n_hidden)
+    
+            cost_graph = nnr.train(X, y)
+    
+            plt.plot(range(len(cost_graph)), np.log(cost_graph))
+            plt.title("Number of Iterations vs Cost")
+            plt.show()
+    
+            X, y = X_train[start:end], y_train[start:end]
+            hidden_output = nnr.sigmoid(np.dot(X, nnr.weights_input_hidden))
+            h = np.dot(hidden_output, nnr.weights_hidden_output)
+    
+            ev.append(explained_variance_score(y, h))
+            print("Explained Variance : ", ev[-1])
+            mae.append(mean_absolute_error(y, h))
+            print("Mean Absolute Error : ", mae[-1])
+            rmse.append(mean_squared_error(y, h) ** .5)
+            print("Root Mean Squared Error : ", rmse[-1])
+            msle.append(mean_squared_log_error(y, h))
+            print("Mean Squared Log Error : ", msle[-1])
+            r2.append(r2_score(y, h))
+            print("R2 Score : ", r2[-1])
 
-        X, y = X_train[start:end], y_train[start:end]
-        hidden_output = nnr.sigmoid(np.dot(X, nnr.weights_input_hidden))
+        print("Test Data")
+
+        nnr.weights_input_hidden = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=(X_train.shape[1], nnr.n_hidden))
+        nnr.weights_hidden_output = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=nnr.n_hidden)
+
+        cost_graph = nnr.train(X_train, y_train)
+
+        np.save("NRWeightsIH.npy", nnr.weights_input_hidden)
+        np.save("NRWeightsHO.npy", nnr.weights_hidden_output)
+
+        hidden_output = nnr.sigmoid(np.dot(X_test, nnr.weights_input_hidden))
         h = np.dot(hidden_output, nnr.weights_hidden_output)
 
-        ev.append(explained_variance_score(y, h))
+        ev.append(explained_variance_score(y_test, h))
         print("Explained Variance : ", ev[-1])
-        mae.append(mean_absolute_error(y, h))
-        print("Mean Absolute Error : ", mae[-1])
-        rmse.append(mean_squared_error(y, h) ** .5)
+        global_mae.append(mean_absolute_error(y_test, h))
+        print("Mean Absolute Error : ", global_mae[-1])
+        rmse.append(mean_squared_error(y_test, h) ** .5)
         print("Root Mean Squared Error : ", rmse[-1])
-        msle.append(mean_squared_log_error(y, h))
+        msle.append(mean_squared_log_error(y_test, h))
         print("Mean Squared Log Error : ", msle[-1])
-        r2.append(r2_score(y, h))
+        r2.append(r2_score(y_test, h))
         print("R2 Score : ", r2[-1])
 
-    plt.plot(range(nnr.cv_splits), ev, "bo")
-    #plt.plot(range(nnr.cv_splits), mae, "r+")
-    #plt.plot(range(nnr.cv_splits), rmse, "g--")
-    #plt.plot(range(nnr.cv_splits), msle, "b.")
-    plt.plot(range(nnr.cv_splits), r2, "g^")
-    plt.title("Split vs Metrics")
+    plt.plot(hidden_nodes, global_mae)
+    plt.title("Neural Network Regression")
+    plt.xlabel("Number of Hidden Nodes")
+    plt.ylabel("Mean Absolute Error")
     plt.show()
-    """
-    print("Test Data")
 
-    nnr.weights_input_hidden = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=(X_train.shape[1], nnr.n_hidden))
-    nnr.weights_hidden_output = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=nnr.n_hidden)
-
-    cost_graph = nnr.train(X_train, y_train)
-
-    np.save("NRWeightsIH.npy", nnr.weights_input_hidden)
-    np.save("NRWeightsHO.npy", nnr.weights_hidden_output)
-
-    hidden_output = nnr.sigmoid(np.dot(X_test, nnr.weights_input_hidden))
-    h = np.dot(hidden_output, nnr.weights_hidden_output)
-
-    ev.append(explained_variance_score(y_test, h))
-    print("Explained Variance : ", ev[-1])
-    mae.append(mean_absolute_error(y_test, h))
-    print("Mean Absolute Error : ", mae[-1])
-    rmse.append(mean_squared_error(y_test, h) ** .5)
-    print("Root Mean Squared Error : ", rmse[-1])
-    msle.append(mean_squared_log_error(y_test, h))
-    print("Mean Squared Log Error : ", msle[-1])
-    r2.append(r2_score(y_test, h))
-    print("R2 Score : ", r2[-1])
-
-    h = np.round(h)
-    ev.append(explained_variance_score(y_test, h))
-    print("Explained Variance : ", ev[-1])
-    mae.append(mean_absolute_error(y_test, h))
-    print("Mean Absolute Error : ", mae[-1])
-    rmse.append(mean_squared_error(y_test, h) ** .5)
-    print("Root Mean Squared Error : ", rmse[-1])
-    msle.append(mean_squared_log_error(y_test, h))
-    print("Mean Squared Log Error : ", msle[-1])
-    r2.append(r2_score(y_test, h))
-    print("R2 Score : ", r2[-1])
 
 
