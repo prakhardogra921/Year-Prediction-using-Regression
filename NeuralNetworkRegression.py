@@ -1,3 +1,5 @@
+#Reference Source: https://github.com/llSourcell/Make_a_neural_network/blob/master/demo.py
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
