@@ -11,9 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 class LinearRegression:
     def __init__(self, filename):
         df = pd.read_csv(filename, header = None)
-        df = shuffle(df)
         self.X = np.array(df.drop([0], axis=1))
-        self.X = StandardScaler().fit_transform(self.X)
         self.y = np.array(df[0])
 
         self.learning_rate = 0.1
@@ -21,6 +19,7 @@ class LinearRegression:
         self.cv_splits = 5
         self.l1_lambda = 0.00001
         self.l2_lambda = 0.00001
+        self.division = 463715
 
     def hypothesis(self, b, W, X):
         return np.matmul(X, W) + b
@@ -31,7 +30,6 @@ class LinearRegression:
 
     def gradient_descent_runner(self, X, y, b, W):
         cost_graph = []
-        #For every iteration, optimize b, W and compute its cost
         for i in range(self.num_iterations):
             cost_graph.append(self.compute_cost(b, W, X, y))
             b, W = self.step_gradient(b, W, X, y)
@@ -49,8 +47,13 @@ class LinearRegression:
 
 if __name__ == "__main__":
     lr = LinearRegression("YearPredictionMSD/YearPredictionMSD.txt")
+
+    #X_train, X_test, y_train, y_test = train_test_split(lr.X, lr.y, test_size = 0.2, random_state = 1)
+
     # This split is provided by the repository. It avoids the 'producer effect' by making sure no song from a given artist ends up in both the train and test set.
-    X_train, X_test, y_train, y_test = train_test_split(lr.X, lr.y, test_size = 0.2, random_state = 1)
+    X_train, y_train = StandardScaler().fit_transform(lr.X[:lr.division]), lr.y[:lr.division]
+    X_test, y_test = StandardScaler().fit_transform(lr.X[lr.division:]), lr.y[lr.division:]
+
     split_size = X_train.shape[0]//lr.cv_splits
 
     ev = []
@@ -127,7 +130,7 @@ if __name__ == "__main__":
                 best_mae = global_mae[-1]
                 best_l2 = lr.l2_lambda
                 best_l1 = lr.l1_lambda
-            lr.l2_lambda *= 3  # 3.3 is so that we can check for points between 0 and 1 at each power of 10
+            lr.l2_lambda *= 3
         lr.l1_lambda *= 3
 
     print("Test Data")
@@ -136,7 +139,6 @@ if __name__ == "__main__":
 
     print("With best hyperparameter lambda L1", lr.l1_lambda, "and L2", lr.l2_lambda)
     b = np.random.normal(scale=1 / X_train.shape[1] ** .5)
-    # can get the size by checking it in the gradient_descent_runner function
     W = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=X_train.shape[1])
 
     b, W, cost_graph = lr.gradient_descent_runner(X_train, y_train, b, W)

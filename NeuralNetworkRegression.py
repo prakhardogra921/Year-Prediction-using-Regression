@@ -11,9 +11,7 @@ from sklearn.metrics import explained_variance_score, mean_absolute_error, mean_
 class NeuralNetworkRegression:
     def __init__(self, filename):
         df = pd.read_csv(filename, header = None)
-        #df = shuffle(df)
         self.X = np.array(df.drop([0], axis=1))
-        self.X = StandardScaler().fit_transform(self.X)
         self.y = np.array(df[0])
 
         self.learning_rate = 0.001
@@ -81,8 +79,8 @@ if __name__ == "__main__":
     #X_train, X_test, y_train, y_test = train_test_split(nnr.X, nnr.y, test_size = 0.2, random_state = 1)
 
     #This split is provided by the repository. It avoids the 'producer effect' by making sure no song from a given artist ends up in both the train and test set.
-    X_train, y_train = nnr.X[:nnr.division], nnr.y[:nnr.division]
-    X_test, y_test = nnr.X[nnr.division:], nnr.y[nnr.division:]
+    X_train, y_train = StandardScaler().fit_transform(nnr.X[:nnr.division]), nnr.y[:nnr.division]
+    X_test, y_test = StandardScaler().fit_transform(nnr.X[nnr.division:]), nnr.y[nnr.division:]
 
     split_size = X_train.shape[0]//nnr.cv_splits
     ev = []
@@ -93,10 +91,13 @@ if __name__ == "__main__":
     hidden_nodes = []
     global_mae = []
 
-    for i in range(10):
-        nnr.n_hidden = (i + 1)*30
-        hidden_nodes.append(nnr.n_hidden)
+    X_t, X_val, y_t, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=1)
 
+    for i in range(5):
+        nnr.n_hidden = (i + 3)*30
+        hidden_nodes.append(nnr.n_hidden)
+        """
+        #Commented block of code for K-Fold Cross Validation. Using Hold out Cross Validation instead.
         for i in range(nnr.cv_splits):
             print("Cross Validation for Split ", i+1)
             start = i * split_size
@@ -127,29 +128,27 @@ if __name__ == "__main__":
             print("Mean Squared Log Error : ", msle[-1])
             r2.append(r2_score(y, h))
             print("R2 Score : ", r2[-1])
+        """
+        print(nnr.n_hidden, "hidden nodes")
+        print("Hold out Crosss Validation")
 
-        print("Test Data")
+        nnr.weights_input_hidden = np.random.normal(scale=1 / X_t.shape[1] ** .5, size=(X_t.shape[1], nnr.n_hidden))
+        nnr.weights_hidden_output = np.random.normal(scale=1 / X_t.shape[1] ** .5, size=nnr.n_hidden)
 
-        nnr.weights_input_hidden = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=(X_train.shape[1], nnr.n_hidden))
-        nnr.weights_hidden_output = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=nnr.n_hidden)
+        cost_graph = nnr.train(X_t, y_t)
 
-        cost_graph = nnr.train(X_train, y_train)
-
-        np.save("NRWeightsIH.npy", nnr.weights_input_hidden)
-        np.save("NRWeightsHO.npy", nnr.weights_hidden_output)
-
-        hidden_output = nnr.sigmoid(np.dot(X_test, nnr.weights_input_hidden))
+        hidden_output = nnr.sigmoid(np.dot(X_val, nnr.weights_input_hidden))
         h = np.dot(hidden_output, nnr.weights_hidden_output)
 
-        ev.append(explained_variance_score(y_test, h))
+        ev.append(explained_variance_score(y_val, h))
         print("Explained Variance : ", ev[-1])
-        global_mae.append(mean_absolute_error(y_test, h))
+        global_mae.append(mean_absolute_error(y_val, h))
         print("Mean Absolute Error : ", global_mae[-1])
-        rmse.append(mean_squared_error(y_test, h) ** .5)
+        rmse.append(mean_squared_error(y_val, h) ** .5)
         print("Root Mean Squared Error : ", rmse[-1])
-        msle.append(mean_squared_log_error(y_test, h))
+        msle.append(mean_squared_log_error(y_val, h))
         print("Mean Squared Log Error : ", msle[-1])
-        r2.append(r2_score(y_test, h))
+        r2.append(r2_score(y_val, h))
         print("R2 Score : ", r2[-1])
 
     plt.plot(hidden_nodes, global_mae)
@@ -158,5 +157,28 @@ if __name__ == "__main__":
     plt.ylabel("Mean Absolute Error")
     plt.show()
 
+    print("Test Data")
+
+    nnr.weights_input_hidden = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=(X_train.shape[1], nnr.n_hidden))
+    nnr.weights_hidden_output = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=nnr.n_hidden)
+
+    cost_graph = nnr.train(X_train, y_train)
+
+    np.save("NRWeightsIH.npy", nnr.weights_input_hidden)
+    np.save("NRWeightsHO.npy", nnr.weights_hidden_output)
+
+    hidden_output = nnr.sigmoid(np.dot(X_test, nnr.weights_input_hidden))
+    h = np.dot(hidden_output, nnr.weights_hidden_output)
+
+    ev.append(explained_variance_score(y_test, h))
+    print("Explained Variance : ", ev[-1])
+    global_mae.append(mean_absolute_error(y_test, h))
+    print("Mean Absolute Error : ", global_mae[-1])
+    rmse.append(mean_squared_error(y_test, h) ** .5)
+    print("Root Mean Squared Error : ", rmse[-1])
+    msle.append(mean_squared_log_error(y_test, h))
+    print("Mean Squared Log Error : ", msle[-1])
+    r2.append(r2_score(y_test, h))
+    print("R2 Score : ", r2[-1])
 
 

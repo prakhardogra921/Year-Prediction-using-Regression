@@ -11,9 +11,7 @@ from sklearn.metrics import explained_variance_score, mean_absolute_error, mean_
 class PolynomialRegression:
     def __init__(self, filename):
         df = pd.read_csv(filename, header = None)
-        #df = shuffle(df)
         self.X = np.array(df.drop([0], axis=1))
-        self.X = StandardScaler().fit_transform(self.X)
         self.y = np.array(df[0])
 
         self.learning_rate = 0.0015
@@ -29,11 +27,11 @@ class PolynomialRegression:
         return np.matmul(X, W) + b
 
     def compute_cost(self, b, W, X, y):
-        total_cost = np.sum(np.square(y - self.hypothesis(b, W, X))) + self.l2_lambda * (np.dot(W, W) + b ** 2)
-        return total_cost/(2*X.shape[0])
+        total_cost = np.sum(np.square(y - self.hypothesis(b, W, X)))/(2*X.shape[0]) + self.l2_lambda * (np.dot(W, W) + b ** 2)
+        return total_cost
 
     def gradient_descent_runner(self, X, y, b, W):
-        # For every iteration, optimize b, m and compute its cost
+        # For every iteration, optimize b, W and compute its cost
         cost = []
         for e in range(self.num_epochs):
             cost_graph = []
@@ -51,7 +49,6 @@ class PolynomialRegression:
             b, W = self.step_gradient(b, W, temp_x, y[i * self.batch_size:])
             cost_graph.append(self.compute_cost(b, W, temp_x, y[i * self.batch_size:]))
             print("Iteration", i, "Cost", cost_graph[-1])
-            #cost.append(cost_graph[-1])
             print("Cost", cost[-1])
 
         return [b, W, cost]
@@ -61,8 +58,8 @@ class PolynomialRegression:
 
     def step_gradient(self, b, W, X, y):
         #Calculate Gradient
-        W_gradient = ((self.hypothesis(b, W, X) - y).dot(X) + self.l2_lambda*W)/X.shape[0]
-        b_gradient = (np.sum(X.dot(W) + b - y) + self.l2_lambda*b)/X.shape[0]
+        W_gradient = ((self.hypothesis(b, W, X) - y).dot(X)/X.shape[0] + self.l2_lambda*W)
+        b_gradient = (np.sum(X.dot(W) + b - y))/X.shape[0] + self.l2_lambda*b
         #Update current W and b
         W -= self.learning_rate * W_gradient
         b -= self.learning_rate * b_gradient
@@ -74,8 +71,8 @@ if __name__ == "__main__":
     #X_train, X_test, y_train, y_test = train_test_split(pr.X, pr.y, test_size = 0.2, random_state = 1)
 
     # This split is provided by the repository. It avoids the 'producer effect' by making sure no song from a given artist ends up in both the train and test set.
-    X_train, y_train = pr.X[:pr.division], pr.y[:pr.division]
-    X_test, y_test = pr.X[pr.division:], pr.y[pr.division:]
+    X_train, y_train = StandardScaler().fit_transform(pr.X[:pr.division]), pr.y[:pr.division]
+    X_test, y_test = StandardScaler().fit_transform(pr.X[pr.division:]), pr.y[pr.division:]
 
     split_size = X_train.shape[0]//pr.cv_splits
     ev = []
@@ -152,10 +149,10 @@ if __name__ == "__main__":
     print("Test Data")
     pr.l2_lambda = best_l2
     print("With best hyperparameter lambda ", pr.l2_lambda)
-    b = np.random.normal(scale=1 / X_train.shape[1] ** .5)
-    # can get the size by checking it in the gradient_descent_runner function
+
     temp = pr.convert_poly(X_train[0:2]) #to get the shape of the weight vector
-    W = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=temp.shape[1])
+    b = np.random.normal(scale=1 / temp.shape[1] ** .5)
+    W = np.random.normal(scale=1 / temp.shape[1] ** .5, size=temp.shape[1])
 
     b, W, cost_graph = pr.gradient_descent_runner(X_train, y_train, b, W)
 

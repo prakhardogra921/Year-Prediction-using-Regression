@@ -12,9 +12,7 @@ from mpl_toolkits.mplot3d import Axes3D
 class PolynomialRegression:
     def __init__(self, filename):
         df = pd.read_csv(filename, header = None)
-        #df = shuffle(df)
         self.X = np.array(df.drop([0], axis=1))
-        self.X = StandardScaler().fit_transform(self.X)
         self.y = np.array(df[0])
 
         self.learning_rate = 0.0015
@@ -35,7 +33,6 @@ class PolynomialRegression:
         return total_cost/(2*X.shape[0])
 
     def gradient_descent_runner(self, X, y, b, W):
-        # For every iteration, optimize b, m and compute its cost
         cost = []
         for e in range(self.num_epochs):
             cost_graph = []
@@ -53,7 +50,6 @@ class PolynomialRegression:
             b, W = self.step_gradient(b, W, temp_x, y[i * self.batch_size:])
             cost_graph.append(self.compute_cost(b, W, temp_x, y[i * self.batch_size:]))
             print("Iteration", i, "Cost", cost_graph[-1])
-            #cost.append(cost_graph[-1])
             print("Cost", cost[-1])
 
         return [b, W, cost]
@@ -76,8 +72,8 @@ if __name__ == "__main__":
     #X_train, X_test, y_train, y_test = train_test_split(pr.X, pr.y, test_size = 0.2, random_state = 1)
 
     # This split is provided by the repository. It avoids the 'producer effect' by making sure no song from a given artist ends up in both the train and test set.
-    X_train, y_train = pr.X[:pr.division], pr.y[:pr.division]
-    X_test, y_test = pr.X[pr.division:], pr.y[pr.division:]
+    X_train, y_train = StandardScaler().fit_transform(pr.X[:pr.division]), pr.y[:pr.division]
+    X_test, y_test = StandardScaler().fit_transform(pr.X[pr.division:]), pr.y[pr.division:]
 
     split_size = X_train.shape[0]//pr.cv_splits
     ev = []
@@ -101,9 +97,8 @@ if __name__ == "__main__":
         pr.l2_lambda = 0.00001
         for _ in range(3):
             print("Training for Lambda L1", pr.l1_lambda, "and L2", pr.l2_lambda)
-            b = np.random.normal()
-            # can get the size by checking it in the gradient_descent_runner function
             temp = pr.convert_poly(X_t[0:2])  # to get the shape of the weight vector
+            b = np.random.normal(scale=1 / temp.shape[1] ** .5)
             W = np.random.normal(scale=1 / temp.shape[1] ** .5, size=temp.shape[1])
             b, W, cost_graph = pr.gradient_descent_runner(X_t, y_t, b, W)
 
@@ -162,9 +157,8 @@ if __name__ == "__main__":
     pr.l2_lambda = best_l2
     pr.l1_lambda = best_l1
     print("With best hyperparameter lambda L1", pr.l1_lambda, "and L2", pr.l2_lambda)
-    b = np.random.normal(scale=1 / X_train.shape[1] ** .5)
-    # can get the size by checking it in the gradient_descent_runner function
-    temp = pr.convert_poly(X_train[0:2]) #to get the shape of the weight vector
+    temp = pr.convert_poly(X_t[0:2])  # to get the shape of the weight vector
+    b = np.random.normal(scale=1 / temp.shape[1] ** .5)
     W = np.random.normal(scale=1 / temp.shape[1] ** .5, size=temp.shape[1])
 
     b, W, cost_graph = pr.gradient_descent_runner(X_train, y_train, b, W)

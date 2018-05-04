@@ -11,9 +11,7 @@ from sklearn.metrics import explained_variance_score, mean_absolute_error, mean_
 class LinearRegression:
     def __init__(self, filename):
         df = pd.read_csv(filename, header = None)
-        #df = shuffle(df)
         self.X = np.array(df.drop([0], axis=1))
-        self.X = StandardScaler().fit_transform(self.X)
         self.y = np.array(df[0])
 
         self.learning_rate = 0.1
@@ -30,7 +28,6 @@ class LinearRegression:
 
     def gradient_descent_runner(self, X, y, b, W):
         cost_graph = []
-        #For every iteration, optimize b, m and compute its cost
         for i in range(self.num_iterations):
             cost_graph.append(self.compute_cost(b, W, X, y))
             b, W = self.step_gradient(b, W, X, y)
@@ -51,15 +48,20 @@ if __name__ == "__main__":
     #X_train, X_test, y_train, y_test = train_test_split(lr.X, lr.y, test_size = 0.2, random_state = 1)
 
     # This split is provided by the repository. It avoids the 'producer effect' by making sure no song from a given artist ends up in both the train and test set.
-    X_train, y_train = lr.X[:lr.division], lr.y[:lr.division]
-    X_test, y_test = lr.X[lr.division:], lr.y[lr.division:]
-
+    X_train, y_train = StandardScaler().fit_transform(lr.X[:lr.division]), lr.y[:lr.division]
+    X_test, y_test = StandardScaler().fit_transform(lr.X[lr.division:]), lr.y[lr.division:]
+    #Doing normalization only after the split
     split_size = X_train.shape[0]//lr.cv_splits
     ev = []
     mae = []
     rmse = []
     msle = []
     r2  =[]
+
+    df = pd.DataFrame(np.concatenate((X_train, y_train[:, None]), axis=1), columns=list(range(90, -1, -1)))
+    df = shuffle(df)
+    X_train = df.drop([0], axis=1)
+    y_train = df[0]
 
     b, W = None, None
     for i in range(lr.cv_splits):
@@ -93,7 +95,6 @@ if __name__ == "__main__":
 
     print("Test Data")
     b = np.random.normal(scale=1 / X_train.shape[1] ** .5)
-    # can get the size by checking it in the gradient_descent_runner function
     W = np.random.normal(scale=1 / X_train.shape[1] ** .5, size=X_train.shape[1])
 
     b, W, cost_graph = lr.gradient_descent_runner(X_train, y_train, b, W)

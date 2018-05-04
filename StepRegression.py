@@ -11,7 +11,7 @@ class StepRegression:
         df = pd.read_csv(filename, header = None)
         #df = shuffle(df)
         self.X = np.array(df.drop([0], axis=1))
-        self.X = StandardScaler().fit_transform(self.X)
+        #self.X = StandardScaler().fit_transform(self.X)
         self.y = np.array(df[0])
 
         self.learning_rate = 0.1
@@ -47,8 +47,8 @@ class StepRegression:
 if __name__ == "__main__":
     sr = StepRegression("YearPredictionMSD/YearPredictionMSD.txt")
     #X_train, X_test, y_train, y_test = train_test_split(sr.X, sr.y, test_size = 0.2, random_state = 1)
-    X_train, y_train = sr.X[:sr.division], sr.y[:sr.division]
-    X_test, y_test = sr.X[sr.division:], sr.y[sr.division:]
+    X_train, y_train = StandardScaler().fit_transform(sr.X[:sr.division]), sr.y[:sr.division]
+    X_test, y_test = StandardScaler().fit_transform(sr.X[sr.division:]), sr.y[sr.division:]
     split_size = X_train.shape[0]//sr.cv_splits
 
 
@@ -60,11 +60,11 @@ if __name__ == "__main__":
     steps = []
     dft = pd.DataFrame(X_t, columns = remaining)
     dfv = pd.DataFrame(X_val, columns = remaining)
-    best_mae = 100
-    all_mae = []
+    best_ar2 = -1
+    all_ar2 = []
     while remaining != []:
         temp = list(steps)
-        mae = {}
+        ar2 = {}
         for i in remaining:
             temp.append(i)
             b = np.random.normal()
@@ -75,28 +75,33 @@ if __name__ == "__main__":
             X = dfv[temp]
             y = y_val
             h = sr.hypothesis(b, W, X)
-            mae[i] = mean_absolute_error(y, h)
+
+            SS_Residual = sum((y - h) ** 2)
+            SS_Total = sum((y - np.mean(y)) ** 2)
+            r_squared = 1 - (float(SS_Residual)) / SS_Total
+            adjusted_r_squared = 1 - (1 - r_squared) * (len(y) - 1) / (len(y) - X.shape[1] - 1)
+            ar2[i] = adjusted_r_squared
             temp = temp[:-1]
         best_col = -1
-        for col in mae:
-            if mae[col] < best_mae:
+        for col in ar2:
+            if ar2[col] > best_ar2:
                 best_col = col
-                best_mae = mae[col]
+                best_ar2 = ar2[col]
         if best_col != -1:
             steps.append(best_col)
             remaining.remove(best_col)
             print("Step", 90 - len(remaining))
-            print("Mean Absolute Error :", best_mae)
+            print("R2 Score :", best_ar2)
             print("Columns", steps)
-            all_mae.append(best_mae)
+            all_ar2.append(best_ar2)
         else:
             break
     print("Selected Features using Step Regression.", steps)
 
-    plt.plot(range(len(all_mae)), all_mae)
+    plt.plot(range(1, len(all_ar2) + 1), all_ar2)
     plt.title("Step Regression")
     plt.xlabel("Number of Selected Features")
-    plt.ylabel("Mean Absolute Error")
+    plt.ylabel("R2 Score")
     plt.show()
 
     X_train = np.array(pd.DataFrame(X_train, columns = list(range(90)))[steps])
